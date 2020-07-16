@@ -3,46 +3,53 @@ import cv2
 import dlib
 import numpy as np
 import os
+import csv
+import statistics
 #Set up some required objects
 #video_capture = cv2.VideoCapture(0) #Webcam object
 video_capture = cv2.VideoCapture('Source.mp4') #Webcam object
 detector = dlib.get_frontal_face_detector() #Face detector
 predictor = dlib.shape_predictor("Dataset/shape_predictor_68_face_landmarks.dat") #Landmark identifier. Set the filename to whatever you named the downloaded file
 
+# POSE ESTIMATION:
+# 3D model points.
+model_points = np.array([
+    (0.0, 0.0, 0.0),  # Nose tip
+    (0.0, -210.0, -100.0),  # Chin
+    (-130.0, 90.0, -110.0),  # Left eye left corner
+    (130.0, 90.0, -110.0),  # Right eye right corner
+    (-180.0, -100.0, -280.0),  # Left Jaw
+    (180.0, -100.0, -280.0)  # Right Jaw
+
+])
+
+# Camera internals
+
+focal_length = video_capture.get(3)
+center = (video_capture.get(3) / 2, video_capture.get(4))
+camera_matrix = np.array(
+    [[focal_length, 0, center[0]],
+     [0, focal_length, center[1]],
+     [0, 0, 1]], dtype="double"
+)
+
+pitch =[]
+yaw =[]
+roll =[]
+head_output_buffer = [pitch,yaw,roll]
+final_output = []
+
 while(video_capture.isOpened()):
     ret, frame = video_capture.read()
-    if ret == False:
-        break
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8)) #Histogram Equalisation
-    clahe_image = clahe.apply(gray)
-    detections = detector(clahe_image, 1) #Detect the faces in the image
-
-    # POSE ESTIMATION:
-    # 3D model points.
-    model_points = np.array([
-        (0.0, 0.0, 0.0),  # Nose tip
-        (0.0, -210.0, -100.0),  # Chin
-        (-130.0, 90.0, -110.0),  # Left eye left corner
-        (130.0, 90.0, -110.0),  # Right eye right corner
-        (-180.0, -100.0, -280.0),  # Left Jaw
-        (180.0, -100.0, -280.0)  # Right Jaw
-
-    ])
-
-    # Camera internals
-
-    focal_length = video_capture.get(3)
-    center = (video_capture.get(3) / 2, video_capture.get(4))
-    camera_matrix = np.array(
-        [[focal_length, 0, center[0]],
-         [0, focal_length, center[1]],
-         [0, 0, 1]], dtype="double"
-    )
+    if ret:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8)) #Histogram Equalisation
+        clahe_image = clahe.apply(gray)
+        detections = detector(clahe_image, 1) #Detect the faces in the image
 
 
-    for k,d in enumerate(detections): #For each detected face
-        shape = predictor(clahe_image, d) #Get coordinates
+        if (detections):
+            shape = predictor(clahe_image, detections[0]) #Get coordinates
 
         for i in range(0,68): #There are 69 landmark points on each face
             cv2.circle(frame, (shape.part(i).x, shape.part(i).y), 2, (0,0,0), thickness=1) #For each point, draw a red circle with thickness2 on the original frame
@@ -98,7 +105,7 @@ while(video_capture.isOpened()):
 
         dist_coeffs = np.zeros((4, 1))  # Assuming no lens distortion
         (success, rotation_vector, translation_vector) = cv2.solvePnP(model_points, image_points, camera_matrix,
-                                                                      dist_coeffs)
+                                                                          dist_coeffs)
 
         #print(
         #"Rotation Vector:\n {0}".format(rotation_vector))
@@ -109,7 +116,7 @@ while(video_capture.isOpened()):
         # We use this to draw a line sticking out of the nose
 
         (nose_end_point2D, jacobian) = cv2.projectPoints(np.array([(0.0, 0.0, 1000.0)]), rotation_vector,
-                                                         translation_vector, camera_matrix, dist_coeffs)
+                                                             translation_vector, camera_matrix, dist_coeffs)
 
         for p in image_points:
             cv2.circle(frame, (int(p[0]), int(p[1])), 2, (255, 0, 0), -1)
@@ -124,26 +131,60 @@ while(video_capture.isOpened()):
 
         projection_matrix = np.array(
             [[rotation_matrix[0][0], rotation_matrix[0][1], rotation_matrix[0][2] , translation_vector[0]],
-             [rotation_matrix[1][0], rotation_matrix[1][1], rotation_matrix[1][2], translation_vector[1]],
-             [rotation_matrix[2][0], rotation_matrix[2][1], rotation_matrix[2][2] , translation_vector[2]]], dtype="double"
+            [rotation_matrix[1][0], rotation_matrix[1][1], rotation_matrix[1][2], translation_vector[1]],
+            [rotation_matrix[2][0], rotation_matrix[2][1], rotation_matrix[2][2] , translation_vector[2]]], dtype="double"
         )
 
         euler_angles = cv2.decomposeProjectionMatrix(projection_matrix)
 
         euler_angles = euler_angles[6]
+
+        yaw = euler_angles[1][0]
+        pitch = euler_angles[0][0]
+
+        if abs(euler_angles[2][0] % 180) <= abs(180 - (euler_angles[2][0] % 180)):
+            roll = (euler_angles[2][0] % 180)
+        else:
+            roll = -1*(180 - (euler_angles[2][0] % 180))
+
+
+
         cv2.putText(frame,
-                    'yaw = '+ str(euler_angles[1][0]), (32, 32), cv2.FONT_HERSHEY_SIMPLEX,
+                    'yaw = '+ str(yaw), (32, 32), cv2.FONT_HERSHEY_SIMPLEX,
                     0.75, (255, 0, 0), 1, cv2.LINE_AA)
         cv2.putText(frame,
-                    'pitch = ' + str(euler_angles[0][0]), (32, 64), cv2.FONT_HERSHEY_SIMPLEX,
+                    'pitch = ' + str(pitch), (32, 64), cv2.FONT_HERSHEY_SIMPLEX,
                     0.75, (255, 0, 0), 1, cv2.LINE_AA)
         cv2.putText(frame,
-                    'roll = ' + str(euler_angles[2][0]), (32, 96), cv2.FONT_HERSHEY_SIMPLEX,
+                    'roll = ' + str(roll), (32, 96), cv2.FONT_HERSHEY_SIMPLEX,
                     0.75, (255, 0, 0), 1, cv2.LINE_AA)
 
-    cv2.imshow("image", frame) #Display the frame
-    if cv2.waitKey(1) & 0xFF == ord('q'): #Exit program when the user presses 'q'
-        break
+        cv2.imshow("image", frame) #Display the frame
 
-video_capture.release()
-cv2.destroyAllWindows()
+        head_output_buffer[0].append(yaw)
+        head_output_buffer[1].append(pitch)
+        head_output_buffer[2].append(roll)
+
+        if (len(head_output_buffer[0]) >= 10):
+            print(str(statistics.median(head_output_buffer[0])) + ', ' + str(statistics.median(head_output_buffer[1])) + ', ' + str(statistics.median(head_output_buffer[2])))
+            final_output.append([statistics.median(head_output_buffer[0]), statistics.median(head_output_buffer[1]), statistics.median(head_output_buffer[2])])
+            head_output_buffer[0].clear()
+            head_output_buffer[1].clear()
+            head_output_buffer[2].clear()
+        if cv2.waitKey(1) & 0xFF == ord('q'):  # Exit program when the user presses 'q'
+            break
+    else:
+        if (len(head_output_buffer[0]) > 0):
+            print(str(statistics.median(head_output_buffer[0])) + ', ' + str(statistics.median(head_output_buffer[1])) + ', ' + str(statistics.median(head_output_buffer[2])))
+            final_output.append([statistics.median(head_output_buffer[0]), statistics.median(head_output_buffer[1]), statistics.median(head_output_buffer[2])])
+
+        video_capture.release()
+        cv2.destroyAllWindows()
+with open('output.csv', mode='w') as employee_file:
+    writer = csv.writer(employee_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+
+    writer.writerow(['yaw', 'pitch', 'roll'])
+    for row in final_output:
+        writer.writerow(row)
+
+
