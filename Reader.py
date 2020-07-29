@@ -7,8 +7,8 @@ import csv
 import statistics
 #Set up some required objects
 #video_capture = cv2.VideoCapture(0) #Webcam object
-video_capture = cv2.VideoCapture('SourceShort3.mp4')
-#video_capture = cv2.VideoCapture('Source3.mp4')
+#video_capture = cv2.VideoCapture('SourceShort3.mp4')
+video_capture = cv2.VideoCapture('Source3.mp4')
 detector = dlib.get_frontal_face_detector() #Face detector
 predictor = dlib.shape_predictor("Dataset/shape_predictor_68_face_landmarks.dat") #Landmark identifier. Set the filename to whatever you named the downloaded file
 
@@ -16,7 +16,10 @@ predictor = dlib.shape_predictor("Dataset/shape_predictor_68_face_landmarks.dat"
 #Parameters:
 
 frame_interval = 10
-pitch_normalisation_value = 0.005
+pitch_normalisation_value = 0.002
+yaw_normalisation_value = 0.002
+pupil_threshold = 50
+EAR_blink_threshold = 0.1
 
 #---------------------------------------------------
 
@@ -44,11 +47,20 @@ camera_matrix = np.array(
 )
 
 pitch =[]
-yaw =[]
-roll =[]
+yaw = []
+roll = []
 NER_L = []
 NER_R = []
-head_output_buffer = [pitch,yaw,roll, NER_L, NER_R]
+EAR_L = []
+EAR_R = []
+EX = []
+EY = []
+IMAR = []
+OMAR = []
+N2MAR_L = []
+N2MAR_R = []
+
+head_output_buffer = [pitch,yaw,roll, NER_L, NER_R, EAR_L, EAR_R, EX, EY, IMAR, OMAR]
 final_output = []
 
 
@@ -101,7 +113,7 @@ while(video_capture.isOpened()):
         cv2.line(frame, (shape.part(47).x, shape.part(47).y), (shape.part(42).x, shape.part(42).y), (0, 0, 0), thickness=1, lineType=8)  # Line on eye
 
 
-
+#------------------------------------------------------------------------------------
         #Head Tracking:
 
         # 2D points for Head Tracking
@@ -225,6 +237,168 @@ while(video_capture.isOpened()):
                     0.75, (255, 0, 0), 1, cv2.LINE_AA)
 
 #--------------------------------------------------------------------------------------------
+# EAR -Eye Aspect Ratio for eyes closing
+
+        p1 = np.array([shape.part(36).x, shape.part(36).y])
+        p2 = np.array([shape.part(37).x, shape.part(37).y])
+        p3 = np.array([shape.part(38).x, shape.part(38).y])
+        p4 = np.array([shape.part(39).x, shape.part(39).y])
+        p5 = np.array([shape.part(40).x, shape.part(40).y])
+        p6 = np.array([shape.part(41).x, shape.part(41).y])
+
+        ear_l = (np.linalg.norm(p2 - p6) + np.linalg.norm(p3 - p5)) / (2 * np.linalg.norm(p1 - p4))
+        ear_l = ear_l * (1 - (np.abs(yaw)*yaw_normalisation_value))
+
+        p1 = np.array([shape.part(42).x, shape.part(42).y])
+        p2 = np.array([shape.part(43).x, shape.part(43).y])
+        p3 = np.array([shape.part(44).x, shape.part(44).y])
+        p4 = np.array([shape.part(45).x, shape.part(45).y])
+        p5 = np.array([shape.part(46).x, shape.part(46).y])
+        p6 = np.array([shape.part(47).x, shape.part(47).y])
+
+        ear_r = (np.linalg.norm(p2 - p6) + np.linalg.norm(p3 - p5)) / (2 * np.linalg.norm(p1 - p4))
+        ear_r = ear_r * (1 - (np.abs(yaw) * yaw_normalisation_value))
+
+        cv2.putText(frame,
+                    'EAR_L = ' + str(ear_l), (32, 192), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.75, (255, 0, 0), 1, cv2.LINE_AA)
+        cv2.putText(frame,
+                    'EAR_R = ' + str(ear_r), (32, 224), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.75, (255, 0, 0), 1, cv2.LINE_AA)
+
+        # -------------------------------------------
+        # Eye Tracking
+        left_eye_region = np.array([(shape.part(42).x, shape.part(42).y),
+                                    (shape.part(43).x, shape.part(43).y),
+                                    (shape.part(44).x, shape.part(44).y),
+                                    (shape.part(45).x, shape.part(45).y),
+                                    (shape.part(46).x, shape.part(46).y),
+                                    (shape.part(47).x, shape.part(47).y)], np.int32)
+
+        height, width, _ = frame.shape
+        mask = np.ones((height, width), np.uint8)
+        cv2.polylines(mask, [left_eye_region], True, 255, 2)
+        cv2.fillPoly(mask, [left_eye_region], 255)
+        left_eye = cv2.bitwise_and(gray, gray, mask=mask)
+
+        min_x = np.min(left_eye_region[:, 0])
+        max_x = np.max(left_eye_region[:, 0])
+        min_y = np.min(left_eye_region[:, 1])
+        max_y = np.max(left_eye_region[:, 1])
+        gray_eye = left_eye[min_y: max_y, min_x: max_x]
+        gray_eye = cv2.GaussianBlur(gray_eye, (3,3), 0)
+
+        _, threshold_eye = cv2.threshold(gray_eye, pupil_threshold, 255, cv2.THRESH_BINARY_INV)
+        M = cv2.moments(threshold_eye)
+
+        if (M["m10"] != 0) and ear_l > EAR_blink_threshold:
+            cX_l = M["m10"] / M["m00"]
+            cY_l = M["m01"] / M["m00"]
+            cX_l = cX_l / (max_x - min_x)
+            cY_l = cY_l / (max_y - min_y)
+
+        right_eye_region = np.array([(shape.part(36).x, shape.part(36).y),
+                                    (shape.part(37).x, shape.part(37).y),
+                                    (shape.part(38).x, shape.part(38).y),
+                                    (shape.part(39).x, shape.part(39).y),
+                                    (shape.part(40).x, shape.part(40).y),
+                                    (shape.part(41).x, shape.part(41).y)], np.int32)
+
+        cv2.polylines(mask, [right_eye_region], True, 255, 2)
+        cv2.fillPoly(mask, [right_eye_region], 255)
+        right_eye = cv2.bitwise_and(gray, gray, mask=mask)
+
+        min_x = np.min(left_eye_region[:, 0])
+        max_x = np.max(left_eye_region[:, 0])
+        min_y = np.min(left_eye_region[:, 1])
+        max_y = np.max(left_eye_region[:, 1])
+        gray_eye = right_eye[min_y: max_y, min_x: max_x]
+        gray_eye = cv2.GaussianBlur(gray_eye, (3, 3), 0)
+
+        _, threshold_eye = cv2.threshold(gray_eye, pupil_threshold, 255, cv2.THRESH_BINARY_INV)
+        M = cv2.moments(threshold_eye)
+
+        if (M["m10"] != 0) and ear_r > EAR_blink_threshold:
+            cX_r = M["m10"] / M["m00"]
+            cY_r = M["m01"] / M["m00"]
+            cX_r = cX_r / (max_x - min_x)
+            cY_r = cY_r / (max_y - min_y)
+
+        eX = (cX_l + cX_r) / 2
+        eY = min((cY_l + cY_r) / 1.4, 1)
+
+        print(eY)
+        threshold_eye = cv2.resize(threshold_eye, None, fx=5, fy=5)
+        #cv2.circle(threshold_eye, (cX_l*5, cY_l*5), 2, (0, 0, 255), thickness=1)
+        #cv2.imshow("Threshold", threshold_eye)
+
+        cv2.putText(frame,
+                    'EX = ' + str(eX), (32, 256), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.75, (255, 0, 0), 1, cv2.LINE_AA)
+        cv2.putText(frame,
+                    'EY = ' + str(eY), (32, 288), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.75, (255, 0, 0), 1, cv2.LINE_AA)
+
+# --------------------------------------------------------------------------------------------
+# OMAR - Outer Mouth Aspect Ratio for mouth stretching, smiling
+
+        p1 = np.array([shape.part(48).x, shape.part(48).y])
+        p2 = np.array([shape.part(49).x, shape.part(49).y])
+        p3 = np.array([shape.part(50).x, shape.part(50).y])
+        p4 = np.array([shape.part(51).x, shape.part(51).y])
+        p5 = np.array([shape.part(52).x, shape.part(52).y])
+        p6 = np.array([shape.part(53).x, shape.part(53).y])
+        p7 = np.array([shape.part(54).x, shape.part(54).y])
+        p8 = np.array([shape.part(55).x, shape.part(55).y])
+        p9 = np.array([shape.part(56).x, shape.part(56).y])
+        p10 = np.array([shape.part(57).x, shape.part(57).y])
+        p11 = np.array([shape.part(58).x, shape.part(58).y])
+        p12 = np.array([shape.part(59).x, shape.part(59).y])
+        p13 = np.array([shape.part(61).x, shape.part(61).y])
+        p14 = np.array([shape.part(62).x, shape.part(62).y])
+        p15 = np.array([shape.part(63).x, shape.part(63).y])
+        p16 = np.array([shape.part(65).x, shape.part(65).y])
+        p17 = np.array([shape.part(66).x, shape.part(66).y])
+        p18 = np.array([shape.part(67).x, shape.part(67).y])
+
+        omar = (np.linalg.norm(p2 - p12) + np.linalg.norm(p3 - p13) + np.linalg.norm(p4 - p14) +
+                np.linalg.norm(p5 - p15) + np.linalg.norm(p6 - p8) + np.linalg.norm(p16 - p9) +
+                np.linalg.norm(p16 - p9) + np.linalg.norm(p17 - p10) + np.linalg.norm(p18 - p11)) /\
+                (5* + np.linalg.norm(p1 - p7))
+
+        omar = omar * (1 - (np.abs(yaw) * yaw_normalisation_value))
+
+        cv2.putText(frame,
+                    'OMAR = ' + str(omar), (32, 320), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.75, (255, 0, 0), 1, cv2.LINE_AA)
+
+# --------------------------------------------------------------------------------------------
+# IMAR - Inner Mouth Aspect Ratio for showing teeth
+
+        imar = (5 * (np.linalg.norm(p13 - p18) + np.linalg.norm(p14 - p17) + np.linalg.norm(p15 - p16))) /\
+               (3 * (np.linalg.norm(p2 - p12) + np.linalg.norm(p3 - p11) + np.linalg.norm(p4 - p10) +
+                np.linalg.norm(p5 - p9) + np.linalg.norm(p6 - p8)))
+
+        cv2.putText(frame,
+                    'IMAR = ' + str(imar), (32, 352), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.75, (255, 0, 0), 1, cv2.LINE_AA)
+
+
+# --------------------------------------------------------------------------------------------
+# N2MAR - Nose to Mouth Ratios
+        p1 = np.array([shape.part(27).x, shape.part(27).y]) #nose bridge
+        p2 = np.array([shape.part(31).x, shape.part(31).y]) #right nose wing
+        p3 = np.array([shape.part(35).x, shape.part(35).y]) #left nose wing
+        p4 = np.array([shape.part(32).x, shape.part(32).y]) #right nostril
+        p5 = np.array([shape.part(52).x, shape.part(52).y])
+        p6 = np.array([shape.part(53).x, shape.part(53).y])
+        p7 = np.array([shape.part(54).x, shape.part(54).y])
+        p8 = np.array([shape.part(55).x, shape.part(55).y])
+        p9 = np.array([shape.part(56).x, shape.part(56).y])
+
+
+
+# --------------------------------------------------------------------------------------------
 
         cv2.imshow("image", frame) #Display the frame
 
@@ -233,28 +407,52 @@ while(video_capture.isOpened()):
         head_output_buffer[2].append(roll)
         head_output_buffer[3].append(ner_l)
         head_output_buffer[4].append(ner_r)
+        head_output_buffer[5].append(ear_l)
+        head_output_buffer[6].append(ear_r)
+        head_output_buffer[7].append(eX)
+        head_output_buffer[8].append(eY)
+        head_output_buffer[9].append(omar)
+        head_output_buffer[10].append(imar)
 
         if (len(head_output_buffer[0]) >= frame_interval):
-            #print(str(statistics.median(head_output_buffer[0])) + ', ' + str(statistics.median(head_output_buffer[1])) + ', ' + str(statistics.median(head_output_buffer[2])))
-            final_output.append([statistics.median(head_output_buffer[0]), statistics.median(head_output_buffer[1]), statistics.median(head_output_buffer[2]), statistics.median(head_output_buffer[3]), statistics.median(head_output_buffer[4])])
-            head_output_buffer[0].clear()
-            head_output_buffer[1].clear()
-            head_output_buffer[2].clear()
-            head_output_buffer[3].clear()
-            head_output_buffer[4].clear()
+            print(str(statistics.median(head_output_buffer[0])) + ', ' + str(statistics.median(head_output_buffer[1])) + ', ' + str(statistics.median(head_output_buffer[2])) + ', ' + str(statistics.median(head_output_buffer[3])) + ', ' + str(statistics.median(head_output_buffer[4])))
+            final_output.append([statistics.median(head_output_buffer[0]),
+                                 statistics.median(head_output_buffer[1]),
+                                 statistics.median(head_output_buffer[2]),
+                                 statistics.median(head_output_buffer[3]),
+                                 statistics.median(head_output_buffer[4]),
+                                 statistics.median(head_output_buffer[5]),
+                                 statistics.median(head_output_buffer[6]),
+                                 statistics.median(head_output_buffer[7]),
+                                 statistics.median(head_output_buffer[8]),
+                                 statistics.median(head_output_buffer[9]),
+                                 statistics.median(head_output_buffer[10])])
+            for datum in head_output_buffer:
+                datum.clear()
+
         if cv2.waitKey(1) & 0xFF == ord('q'):  # Exit program when the user presses 'q'
             break
     else:
         if (len(head_output_buffer[0]) > 0):
             #print(str(statistics.median(head_output_buffer[0])) + ', ' + str(statistics.median(head_output_buffer[1])) + ', ' + str(statistics.median(head_output_buffer[2])))
-            final_output.append([statistics.median(head_output_buffer[0]), statistics.median(head_output_buffer[1]), statistics.median(head_output_buffer[2]), statistics.median(head_output_buffer[3]), statistics.median(head_output_buffer[4])])
+            final_output.append([statistics.median(head_output_buffer[0]),
+                                 statistics.median(head_output_buffer[1]),
+                                 statistics.median(head_output_buffer[2]),
+                                 statistics.median(head_output_buffer[3]),
+                                 statistics.median(head_output_buffer[4]),
+                                 statistics.median(head_output_buffer[5]),
+                                 statistics.median(head_output_buffer[6]),
+                                 statistics.median(head_output_buffer[7]),
+                                 statistics.median(head_output_buffer[8]),
+                                 statistics.median(head_output_buffer[9]),
+                                 statistics.median(head_output_buffer[10])])
 
         video_capture.release()
         cv2.destroyAllWindows()
 with open('output.csv', mode='w') as employee_file:
     writer = csv.writer(employee_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
-    writer.writerow(['yaw', 'pitch', 'roll', 'NER_L', 'NER_R'])
+    writer.writerow(['yaw', 'pitch', 'roll', 'NER_L', 'NER_R', 'EAR_L', 'EAR_R', 'E_X', 'E_Y', 'OMAR', 'IMAR'])
     for row in final_output:
         writer.writerow(row)
 
