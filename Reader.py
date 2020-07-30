@@ -7,7 +7,7 @@ import csv
 import statistics
 #Set up some required objects
 #video_capture = cv2.VideoCapture(0) #Webcam object
-#video_capture = cv2.VideoCapture('SourceShort3.mp4')
+#video_capture = cv2.VideoCapture('SourceShort4.mp4')
 video_capture = cv2.VideoCapture('Source3.mp4')
 detector = dlib.get_frontal_face_detector() #Face detector
 predictor = dlib.shape_predictor("Dataset/shape_predictor_68_face_landmarks.dat") #Landmark identifier. Set the filename to whatever you named the downloaded file
@@ -19,7 +19,7 @@ frame_interval = 10
 pitch_normalisation_value = 0.002
 yaw_normalisation_value = 0.002
 pupil_threshold = 50
-EAR_blink_threshold = 0.1
+EAR_blink_threshold = 0.15
 
 #---------------------------------------------------
 
@@ -296,6 +296,9 @@ while(video_capture.isOpened()):
             cY_l = M["m01"] / M["m00"]
             cX_l = cX_l / (max_x - min_x)
             cY_l = cY_l / (max_y - min_y)
+        else:
+            cX_l = 0.5
+            cY_l = 0.5
 
         right_eye_region = np.array([(shape.part(36).x, shape.part(36).y),
                                     (shape.part(37).x, shape.part(37).y),
@@ -323,9 +326,12 @@ while(video_capture.isOpened()):
             cY_r = M["m01"] / M["m00"]
             cX_r = cX_r / (max_x - min_x)
             cY_r = cY_r / (max_y - min_y)
+        else:
+            cX_r = 0.5
+            cY_r = 0.5
 
         eX = (cX_l + cX_r) / 2
-        eY = min((cY_l + cY_r) / 1.4, 1)
+        eY = min((cY_l + cY_r) / 2, 1)
 
         print(eY)
         threshold_eye = cv2.resize(threshold_eye, None, fx=5, fy=5)
