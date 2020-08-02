@@ -5,21 +5,25 @@ import numpy as np
 import os
 import csv
 import statistics
+
 #Set up some required objects
+
 #video_capture = cv2.VideoCapture(0) #Webcam object
 #video_capture = cv2.VideoCapture('SourceShort4.mp4')
+fourcc = cv2.VideoWriter_fourcc(*'XVID')
 video_capture = cv2.VideoCapture('Source3.mp4')
+video_output = cv2.VideoWriter('output.avi', fourcc, 60.0, (1920,1080))
 detector = dlib.get_frontal_face_detector() #Face detector
 predictor = dlib.shape_predictor("Dataset/shape_predictor_68_face_landmarks.dat") #Landmark identifier. Set the filename to whatever you named the downloaded file
-
+cv2.useOptimized()
 #---------------------------------------------------
 #Parameters:
 
 frame_interval = 10
-pitch_normalisation_value = 0.002
-yaw_normalisation_value = 0.002
+pitch_normalisation_value = 0.01
+yaw_normalisation_value = 0.005
 pupil_threshold = 50
-EAR_blink_threshold = 0.15
+EAR_blink_threshold = 0.10
 
 #---------------------------------------------------
 
@@ -59,11 +63,10 @@ IMAR = []
 OMAR = []
 N2MAR_L = []
 N2MAR_R = []
+blink = []
 
-head_output_buffer = [pitch,yaw,roll, NER_L, NER_R, EAR_L, EAR_R, EX, EY, IMAR, OMAR]
+head_output_buffer = [pitch,yaw,roll, NER_L, NER_R, EAR_L, EAR_R, EX, EY, IMAR, OMAR, blink, N2MAR_R, N2MAR_L]
 final_output = []
-
-
 
 while(video_capture.isOpened()):
     ret, frame = video_capture.read()
@@ -138,7 +141,6 @@ while(video_capture.isOpened()):
         (nose_end_point2D, jacobian) = cv2.projectPoints(np.array([(0.0, 0.0, 1000.0)]), rotation_vector,
                                                              translation_vector, camera_matrix, dist_coeffs)
 
-
         for p in image_points:
             cv2.circle(frame, (int(p[0]), int(p[1])), 2, (255, 0, 0), -1)
 
@@ -153,14 +155,13 @@ while(video_capture.isOpened()):
         projection_matrix = np.array(
             [[rotation_matrix[0][0], rotation_matrix[0][1], rotation_matrix[0][2] , translation_vector[0]],
             [rotation_matrix[1][0], rotation_matrix[1][1], rotation_matrix[1][2], translation_vector[1]],
-            [rotation_matrix[2][0], rotation_matrix[2][1], rotation_matrix[2][2] , translation_vector[2]]], dtype="double"
+            [rotation_matrix[2][0], rotation_matrix[2][1], rotation_matrix[2][2], translation_vector[2]]], dtype="double"
         )
 
         euler_angles = cv2.decomposeProjectionMatrix(projection_matrix)
         euler_angles = euler_angles[6]
 
         nose_bridge = np.array([shape.part(27).x, shape.part(27).y])
-
 
         yaw = -euler_angles[1][0]
         pitch = -(nose_tip[1] - nose_target[1]) * 0.05
@@ -171,8 +172,6 @@ while(video_capture.isOpened()):
             roll = -1*(180 - (euler_angles[2][0] % 180))
 
         roll = - roll
-
-
 
         cv2.putText(frame,
                     'yaw = '+ str(yaw), (32, 32), cv2.FONT_HERSHEY_SIMPLEX,
@@ -208,11 +207,8 @@ while(video_capture.isOpened()):
         p3 = np.array([shape.part(21).x, shape.part(21).y])
         d4 = np.linalg.norm(np.cross(outer_brow1 - nose_bridge, nose_bridge - p3)) / np.linalg.norm(outer_brow1 - nose_bridge)
 
-
         ner_r =(d1 + d2 + d3 + d4) / (4 * np.linalg.norm(outer_brow1 - nose_bridge))
         ner_r = ner_r * (1 + (pitch * pitch_normalisation_value))
-
-
 
         p3 = np.array([shape.part(25).x, shape.part(25).y])
         d1 = np.linalg.norm(np.cross(outer_brow2 - nose_bridge, nose_bridge - p3)) / np.linalg.norm(outer_brow2 - nose_bridge)
@@ -259,6 +255,12 @@ while(video_capture.isOpened()):
         ear_r = (np.linalg.norm(p2 - p6) + np.linalg.norm(p3 - p5)) / (2 * np.linalg.norm(p1 - p4))
         ear_r = ear_r * (1 - (np.abs(yaw) * yaw_normalisation_value))
 
+        blink = 0
+
+        # and (final_output[-1][11] == 0) ?
+        if (final_output and ((ear_r + ear_l )/ 2) < EAR_blink_threshold):
+            blink = 1
+
         cv2.putText(frame,
                     'EAR_L = ' + str(ear_l), (32, 192), cv2.FONT_HERSHEY_SIMPLEX,
                     0.75, (255, 0, 0), 1, cv2.LINE_AA)
@@ -292,13 +294,17 @@ while(video_capture.isOpened()):
         M = cv2.moments(threshold_eye)
 
         if (M["m10"] != 0) and ear_l > EAR_blink_threshold:
-            cX_l = M["m10"] / M["m00"]
-            cY_l = M["m01"] / M["m00"]
-            cX_l = cX_l / (max_x - min_x)
-            cY_l = cY_l / (max_y - min_y)
+            cX_la = M["m10"] / M["m00"]
+            cY_la = M["m01"] / M["m00"]
+            cX_l = cX_la / (max_x - min_x)
+            cY_l = cY_la / (max_y - min_y) * 1.8
         else:
             cX_l = 0.5
             cY_l = 0.5
+            cX_la = (max_x - min_x) / 2
+            cY_la = (max_y - min_y) / 2
+
+        cv2.circle(frame, (min_x + int(cX_la), min_y + int(cY_la)), 2, (0, 0, 255), thickness=1)
 
         right_eye_region = np.array([(shape.part(36).x, shape.part(36).y),
                                     (shape.part(37).x, shape.part(37).y),
@@ -311,10 +317,10 @@ while(video_capture.isOpened()):
         cv2.fillPoly(mask, [right_eye_region], 255)
         right_eye = cv2.bitwise_and(gray, gray, mask=mask)
 
-        min_x = np.min(left_eye_region[:, 0])
-        max_x = np.max(left_eye_region[:, 0])
-        min_y = np.min(left_eye_region[:, 1])
-        max_y = np.max(left_eye_region[:, 1])
+        min_x = np.min(right_eye_region[:, 0])
+        max_x = np.max(right_eye_region[:, 0])
+        min_y = np.min(right_eye_region[:, 1])
+        max_y = np.max(right_eye_region[:, 1])
         gray_eye = right_eye[min_y: max_y, min_x: max_x]
         gray_eye = cv2.GaussianBlur(gray_eye, (3, 3), 0)
 
@@ -322,21 +328,20 @@ while(video_capture.isOpened()):
         M = cv2.moments(threshold_eye)
 
         if (M["m10"] != 0) and ear_r > EAR_blink_threshold:
-            cX_r = M["m10"] / M["m00"]
-            cY_r = M["m01"] / M["m00"]
-            cX_r = cX_r / (max_x - min_x)
-            cY_r = cY_r / (max_y - min_y)
+            cX_ra = M["m10"] / M["m00"]
+            cY_ra = M["m01"] / M["m00"]
+            cX_r = cX_ra / (max_x - min_x)
+            cY_r = cY_ra / (max_y - min_y) * 1.8
         else:
             cX_r = 0.5
             cY_r = 0.5
+            cX_ra = (max_x - min_x) / 2
+            cY_ra = (max_y - min_y) / 2
+
+        cv2.circle(frame, (min_x + int(cX_ra), min_y + int(cY_ra)), 2, (0, 0, 255), thickness=1)
 
         eX = (cX_l + cX_r) / 2
         eY = min((cY_l + cY_r) / 2, 1)
-
-        print(eY)
-        threshold_eye = cv2.resize(threshold_eye, None, fx=5, fy=5)
-        #cv2.circle(threshold_eye, (cX_l*5, cY_l*5), 2, (0, 0, 255), thickness=1)
-        #cv2.imshow("Threshold", threshold_eye)
 
         cv2.putText(frame,
                     'EX = ' + str(eX), (32, 256), cv2.FONT_HERSHEY_SIMPLEX,
@@ -344,6 +349,12 @@ while(video_capture.isOpened()):
         cv2.putText(frame,
                     'EY = ' + str(eY), (32, 288), cv2.FONT_HERSHEY_SIMPLEX,
                     0.75, (255, 0, 0), 1, cv2.LINE_AA)
+
+        if final_output and final_output[-1][11] == 1.0:
+            cv2.putText(frame,
+                        'BLINK', (32, 384), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.75, (0, 0, 255), 1, cv2.LINE_AA)
+
 
 # --------------------------------------------------------------------------------------------
 # OMAR - Outer Mouth Aspect Ratio for mouth stretching, smiling
@@ -396,17 +407,59 @@ while(video_capture.isOpened()):
         p2 = np.array([shape.part(31).x, shape.part(31).y]) #right nose wing
         p3 = np.array([shape.part(35).x, shape.part(35).y]) #left nose wing
         p4 = np.array([shape.part(32).x, shape.part(32).y]) #right nostril
-        p5 = np.array([shape.part(52).x, shape.part(52).y])
-        p6 = np.array([shape.part(53).x, shape.part(53).y])
-        p7 = np.array([shape.part(54).x, shape.part(54).y])
-        p8 = np.array([shape.part(55).x, shape.part(55).y])
-        p9 = np.array([shape.part(56).x, shape.part(56).y])
+        p5 = np.array([shape.part(34).x, shape.part(34).y]) #left nostril
+        p6 = np.array([shape.part(33).x, shape.part(33).y]) #nose bottom
+        p7 = np.array([shape.part(48).x, shape.part(48).y]) # right lip corner
+        p8 = np.array([shape.part(49).x, shape.part(49).y]) # right lip 1
+        p9 = np.array([shape.part(50).x, shape.part(50).y]) # right lip 2
+        p10 = np.array([shape.part(51).x, shape.part(51).y]) # lip center
+        p11 = np.array([shape.part(52).x, shape.part(52).y]) # left lip 2
+        p12 = np.array([shape.part(53).x, shape.part(53).y]) # left lip 1
+        p13= np.array([shape.part(54).x, shape.part(54).y]) # left lip corner
 
+        d1 = np.linalg.norm(np.cross(p2 - p3, p3 - p7)) / np.linalg.norm(
+            p2 - p3)
 
+        d2 = np.linalg.norm(np.cross(p2 - p3, p3 - p8)) / np.linalg.norm(
+            p2 - p3)
+
+        d3 = np.linalg.norm(np.cross(p2 - p3, p3 - p9)) / np.linalg.norm(
+            p2 - p3)
+
+        d4 = np.linalg.norm(np.cross(p2 - p3, p3 - p10)) / np.linalg.norm(
+            p2 - p3)
+
+        n2mar_r = (d1 + d2) / (d3 + d4)
+
+        d1 = np.linalg.norm(np.cross(p2 - p3, p3 - p13)) / np.linalg.norm(
+            p2 - p3)
+
+        d2 = np.linalg.norm(np.cross(p2 - p3, p3 - p12)) / np.linalg.norm(
+            p2 - p3)
+
+        d3 = np.linalg.norm(np.cross(p2 - p3, p3 - p11)) / np.linalg.norm(
+            p2 - p3)
+
+        d4 = np.linalg.norm(np.cross(p2 - p3, p3 - p10)) / np.linalg.norm(
+            p2 - p3)
+
+        n2mar_l = (d1 + d2) / (d3 + d4)
+
+        n2mar_l = n2mar_l * (1 + (pitch * pitch_normalisation_value * 2))
+        n2mar_r = n2mar_r * (1 + (pitch * pitch_normalisation_value * 2))
+
+        cv2.putText(frame,
+                    'N2MAR_R = ' + str(n2mar_r), (32, 416), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.75, (0, 255, 0), 1, cv2.LINE_AA)
+
+        cv2.putText(frame,
+                    'N2MAR_L = ' + str(n2mar_l), (32, 448), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.75, (0, 255, 0), 1, cv2.LINE_AA)
 
 # --------------------------------------------------------------------------------------------
 
         cv2.imshow("image", frame) #Display the frame
+        video_output.write(frame)
 
         head_output_buffer[0].append(yaw)
         head_output_buffer[1].append(pitch)
@@ -419,6 +472,9 @@ while(video_capture.isOpened()):
         head_output_buffer[8].append(eY)
         head_output_buffer[9].append(omar)
         head_output_buffer[10].append(imar)
+        head_output_buffer[11].append(blink)
+        head_output_buffer[12].append(n2mar_r)
+        head_output_buffer[13].append(n2mar_l)
 
         if (len(head_output_buffer[0]) >= frame_interval):
             print(str(statistics.median(head_output_buffer[0])) + ', ' + str(statistics.median(head_output_buffer[1])) + ', ' + str(statistics.median(head_output_buffer[2])) + ', ' + str(statistics.median(head_output_buffer[3])) + ', ' + str(statistics.median(head_output_buffer[4])))
@@ -432,7 +488,11 @@ while(video_capture.isOpened()):
                                  statistics.median(head_output_buffer[7]),
                                  statistics.median(head_output_buffer[8]),
                                  statistics.median(head_output_buffer[9]),
-                                 statistics.median(head_output_buffer[10])])
+                                 statistics.median(head_output_buffer[10]),
+                                 np.max(head_output_buffer[11]),
+                                 statistics.median(head_output_buffer[12]),
+                                 statistics.median(head_output_buffer[13])])
+
             for datum in head_output_buffer:
                 datum.clear()
 
@@ -440,7 +500,6 @@ while(video_capture.isOpened()):
             break
     else:
         if (len(head_output_buffer[0]) > 0):
-            #print(str(statistics.median(head_output_buffer[0])) + ', ' + str(statistics.median(head_output_buffer[1])) + ', ' + str(statistics.median(head_output_buffer[2])))
             final_output.append([statistics.median(head_output_buffer[0]),
                                  statistics.median(head_output_buffer[1]),
                                  statistics.median(head_output_buffer[2]),
@@ -451,10 +510,16 @@ while(video_capture.isOpened()):
                                  statistics.median(head_output_buffer[7]),
                                  statistics.median(head_output_buffer[8]),
                                  statistics.median(head_output_buffer[9]),
-                                 statistics.median(head_output_buffer[10])])
+                                 statistics.median(head_output_buffer[10]),
+                                 np.max(head_output_buffer[11]),
+                                 statistics.median(head_output_buffer[12]),
+                                 statistics.median(head_output_buffer[13])])
+
 
         video_capture.release()
+        video_output.release()
         cv2.destroyAllWindows()
+
 with open('output.csv', mode='w') as employee_file:
     writer = csv.writer(employee_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
