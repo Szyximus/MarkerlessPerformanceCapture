@@ -12,22 +12,28 @@ file_path = 'D:/3D/Mermaid/output.csv'
 neck_bone_power= 0.3
 head_bone_power= 0.7
 
-neutral_NER = 0.2
-min_NER = 0.15
-max_NER = 0.24
+pitch_adjustment = 10
 
-neutral_EAR = 0.3
-min_EAR = 0.16
-max_EAR = 0.45
+neutral_NER = 0.18
+min_NER = 0.11
+max_NER = 0.21
 
-eyeY_adjustment = 0.12
+neutral_EAR = 0.2
+min_EAR = 0.1
+max_EAR = 0.6
+
+eyeY_adjustment = -0.0
 
 neutral_OMAR = 0.35
-min_OMAR = 0.2
+min_OMAR = 0.26
 max_OMAR = 0.6
 
 min_IMAR = 0.1
-max_IMAR = 0.6
+max_IMAR = 0.65
+
+neutral_N2MAR = 1.13
+min_N2MAR = 0.9
+max_N2MAR = 1.2
 
 #----------------------------------------------------
 
@@ -100,8 +106,8 @@ else:
                 
                 angle = float(row[1]) * 1.2
                 
-                neck_bone.rotation_euler.rotate_axis('X', math.radians(angle) * neck_bone_power)
-                head_bone.rotation_euler.rotate_axis('X', math.radians(angle) * head_bone_power)
+                neck_bone.rotation_euler.rotate_axis('X', math.radians(angle + pitch_adjustment) * neck_bone_power)
+                head_bone.rotation_euler.rotate_axis('X', math.radians(angle + pitch_adjustment) * head_bone_power)
                 
                 angle = float(row[2]) * 0.8
                 
@@ -153,19 +159,16 @@ else:
                 if normalisation_value < 0:
                     normalisation_value = 0
                 
-                #print((NER_L - neutral_NER) / (max_NER - neutral_NER))
-                #print(normalisation_value)
-                
                 if (NER_L - neutral_NER) >= 0:
                     inner_eyebrow_L.rotation_euler.rotate_axis('X', (0.25 * ((NER_L - neutral_NER) / (max_NER - neutral_NER)) * normalisation_value ))
-                    outer_eyebrow_L.rotation_euler.rotate_axis('X', (0.20 * ((NER_L - neutral_NER) / (max_NER - neutral_NER))  * normalisation_value ))
+                    outer_eyebrow_L.rotation_euler.rotate_axis('X', (0.15 * ((NER_L - neutral_NER) / (max_NER - neutral_NER))  * normalisation_value ))
                 else:
                     inner_eyebrow_L.rotation_euler.rotate_axis('Z', (-0.33 * ((NER_L - neutral_NER) / (min_NER - neutral_NER)) * normalisation_value ))
                     outer_eyebrow_L.rotation_euler.rotate_axis('X', (0.1 * ((NER_L - neutral_NER) / (max_NER - neutral_NER)) * normalisation_value ))
                     
                 if (NER_R - neutral_NER) >= 0:
                     inner_eyebrow_R.rotation_euler.rotate_axis('X', (0.25 * ((NER_R - neutral_NER) / (max_NER - neutral_NER)) * normalisation_value ))
-                    outer_eyebrow_R.rotation_euler.rotate_axis('X', (0.20 * ((NER_R - neutral_NER) / (max_NER - neutral_NER)) * normalisation_value ))
+                    outer_eyebrow_R.rotation_euler.rotate_axis('X', (0.15 * ((NER_R - neutral_NER) / (max_NER - neutral_NER)) * normalisation_value ))
                 else:
                     inner_eyebrow_R.rotation_euler.rotate_axis('Z', (0.33 * ((NER_R - neutral_NER) / (min_NER - neutral_NER)) * normalisation_value ))
                     outer_eyebrow_R.rotation_euler.rotate_axis('X', (0.1 * ((NER_R - neutral_NER) / (max_NER - neutral_NER)) * normalisation_value ))
@@ -191,17 +194,21 @@ else:
                 
                 if (EAR_L - neutral_EAR) >= 0:
                     eyelid_top_L.rotation_euler.rotate_axis('X', (0.5 * ((EAR_L - neutral_EAR) / (max_EAR - neutral_EAR)) * normalisation_value ))
+                    eyelid_bottom_L.rotation_euler.rotate_axis('X', 0)
+                    cheek_L.rotation_euler.rotate_axis('X', 0)
                 else:
                     eyelid_top_L.rotation_euler.rotate_axis('X', (-0.33 * ((EAR_L - neutral_EAR) / (min_EAR - neutral_EAR)) * normalisation_value ))
                     eyelid_bottom_L.rotation_euler.rotate_axis('X', (0.25 * ((EAR_L - neutral_EAR) / (min_EAR - neutral_EAR)) * normalisation_value ))
-                    cheek_L.rotation_euler.rotate_axis('X', (0.5 * ((EAR_L - neutral_EAR) / (min_EAR - neutral_EAR)) * normalisation_value ))
+                    cheek_L.rotation_euler.rotate_axis('X', (0.25 * ((EAR_L - neutral_EAR) / (min_EAR - neutral_EAR)) * normalisation_value ))
                     
                 if (EAR_R - neutral_EAR) >= 0:
                     eyelid_top_R.rotation_euler.rotate_axis('X', (0.5 * ((EAR_R - neutral_EAR) / (max_EAR - neutral_EAR)) * normalisation_value ))
+                    eyelid_bottom_R.rotation_euler.rotate_axis('X', 0)
+                    cheek_R.rotation_euler.rotate_axis('X', 0)
                 else:
                     eyelid_top_R.rotation_euler.rotate_axis('X', (-0.33 * ((EAR_R - neutral_EAR) / (min_EAR - neutral_EAR)) * normalisation_value ))
                     eyelid_bottom_R.rotation_euler.rotate_axis('X', (0.25 * ((EAR_R - neutral_EAR) / (min_EAR - neutral_EAR)) * normalisation_value ))
-                    cheek_R.rotation_euler.rotate_axis('X', (0.5 * ((EAR_R - neutral_EAR) / (min_EAR - neutral_EAR)) * normalisation_value ))
+                    cheek_R.rotation_euler.rotate_axis('X', (0.25 * ((EAR_R - neutral_EAR) / (min_EAR - neutral_EAR)) * normalisation_value ))
                     
                 
                 eyelid_top_L.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
@@ -233,11 +240,11 @@ else:
                     
                 jaw.rotation_euler.rotate_axis('X', (math.radians(5) - math.radians(5) * ((IMAR - min_IMAR) / (max_IMAR - min_IMAR)) * normalisation_value ))
                 
-                lip_top.rotation_euler.rotate_axis('X', ( math.radians(3) * ((IMAR - min_IMAR) / (max_IMAR - min_IMAR)) * normalisation_value ))
-                lip_top_R.rotation_euler.rotate_axis('X', ( math.radians(15) * ((IMAR - min_IMAR) / (max_IMAR - min_IMAR)) * normalisation_value ))
-                lip_top_L.rotation_euler.rotate_axis('X', ( math.radians(15) * ((IMAR - min_IMAR) / (max_IMAR - min_IMAR)) * normalisation_value ))
+                lip_top.rotation_euler.rotate_axis('X', ( math.radians(4) * ((IMAR - min_IMAR) / (max_IMAR - min_IMAR)) * normalisation_value ))
+                lip_top_R.rotation_euler.rotate_axis('X', ( math.radians(25) * ((IMAR - min_IMAR) / (max_IMAR - min_IMAR)) * normalisation_value ))
+                lip_top_L.rotation_euler.rotate_axis('X', ( math.radians(25) * ((IMAR - min_IMAR) / (max_IMAR - min_IMAR)) * normalisation_value ))
                 
-                lip_bottom.rotation_euler.rotate_axis('X', ( -math.radians(10) * ((IMAR - min_IMAR) / (max_IMAR - min_IMAR)) * normalisation_value ))
+                lip_bottom.rotation_euler.rotate_axis('X', ( -math.radians(6) * ((IMAR - min_IMAR) / (max_IMAR - min_IMAR)) * normalisation_value ))
                 lip_bottom_R.rotation_euler.rotate_axis('X', ( -math.radians(5) * ((IMAR - min_IMAR) / (max_IMAR - min_IMAR)) * normalisation_value ))
                 lip_bottom_L.rotation_euler.rotate_axis('X', ( -math.radians(5) * ((IMAR - min_IMAR) / (max_IMAR - min_IMAR)) * normalisation_value ))
                 
@@ -248,17 +255,13 @@ else:
                 lip_top.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
                 lip_top_L.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
                 lip_top_R.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
-                
-                lip_top.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
-                lip_top_L.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
-                lip_top_R.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
-                
+
                 lip_bottom.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
                 lip_bottom_L.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
                 lip_bottom_R.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
                 
 #--------------------------------------------------------------------------------------------------------------------------------------
-# Mouth Squash and Stretch
+# Mouth Squash and Smile
 
                 OMAR = float(row[9])
                 
@@ -266,25 +269,110 @@ else:
                 lip_corner_L.rotation_mode = 'XYZ'
                 
                 if (OMAR - neutral_OMAR) <= 0:
-                    lip_corner_R.rotation_euler.rotate_axis('X', (-0.75 * ((OMAR - neutral_OMAR) / (max_OMAR - neutral_OMAR)) * normalisation_value ))
-                    lip_corner_L.rotation_euler.rotate_axis('X', (-0.75 * ((OMAR - neutral_OMAR) / (max_OMAR - neutral_OMAR)) * normalisation_value ))
+                    lip_corner_R.rotation_euler.rotate_axis('X', (-0.5 * ((OMAR - neutral_OMAR) / (max_OMAR - neutral_OMAR)) * normalisation_value +
+                     0.2 * ((IMAR - min_IMAR) / (max_IMAR - min_IMAR)) * normalisation_value))
+                     
+                    lip_corner_L.rotation_euler.rotate_axis('X', (-0.5 * ((OMAR - neutral_OMAR) / (max_OMAR - neutral_OMAR)) * normalisation_value +
+                     0.2 * ((IMAR - min_IMAR) / (max_IMAR - min_IMAR)) * normalisation_value))
+                     
+                    lip_corner_R.rotation_euler.rotate_axis('Z', (-0.1 * ((OMAR - neutral_OMAR) / (min_OMAR - neutral_OMAR)) * normalisation_value ))
+                    lip_corner_L.rotation_euler.rotate_axis('Z', (0.1 * ((OMAR - neutral_OMAR) / (min_OMAR - neutral_OMAR)) * normalisation_value ))
                     
-                    cheek_L.rotation_euler.rotate_axis('X', (cheek_L.matrix.to_euler().x - 0.5 * ((OMAR - neutral_OMAR) / (max_OMAR - neutral_OMAR)) * normalisation_value ))
-                    cheek_R.rotation_euler.rotate_axis('X', (cheek_R.matrix.to_euler().x - 0.5 * ((OMAR - neutral_OMAR) / (max_OMAR - neutral_OMAR)) * normalisation_value ))
+                    lip_top_R.rotation_euler.rotate_axis('X', ( lip_top_R.matrix.to_euler().x - 0.05 * ((OMAR - neutral_OMAR) / (max_OMAR - neutral_OMAR)) * normalisation_value ) )
+                    lip_top_L.rotation_euler.rotate_axis('X', ( lip_top_L.matrix.to_euler().x - 0.05 * ((OMAR - neutral_OMAR) / (max_OMAR - neutral_OMAR)) * normalisation_value ) )
+                    
+                    lip_bottom.rotation_euler.rotate_axis('X', (lip_bottom.matrix.to_euler().x - 0.01 * ((OMAR - neutral_OMAR) / (max_OMAR - neutral_OMAR)) * normalisation_value ))
+                    
+                    cheek_L.rotation_euler.rotate_axis('X', (cheek_L.matrix.to_euler().x - 0.15 * ((OMAR - neutral_OMAR) / (max_OMAR - neutral_OMAR)) * normalisation_value ))
+                    cheek_R.rotation_euler.rotate_axis('X', (cheek_R.matrix.to_euler().x - 0.15 * ((OMAR - neutral_OMAR) / (max_OMAR - neutral_OMAR)) * normalisation_value ))
+                    
+                    eyelid_bottom_L.rotation_euler.rotate_axis('X', (eyelid_bottom_L.matrix.to_euler().x - 0.1 * ((OMAR - neutral_OMAR) / (max_OMAR - neutral_OMAR)) * normalisation_value ))
+                    eyelid_bottom_R.rotation_euler.rotate_axis('X', (eyelid_bottom_R.matrix.to_euler().x - 0.1 * ((OMAR - neutral_OMAR) / (max_OMAR - neutral_OMAR)) * normalisation_value ))
+                    
                 else:
                     lip_corner_R.rotation_euler.rotate_axis('Z', (-0.25 * ((OMAR - neutral_OMAR) / (min_OMAR - neutral_OMAR)) * normalisation_value ))
                     lip_corner_L.rotation_euler.rotate_axis('Z', (-0.25 * ((OMAR - neutral_OMAR) / (max_OMAR - neutral_OMAR)) * normalisation_value ))
                     
-                    cheek_L.rotation_euler.rotate_axis('X', (cheek_L.matrix.to_euler().x))
-                    cheek_R.rotation_euler.rotate_axis('X', (cheek_R.matrix.to_euler().x))
                     
+                lip_top_R.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
+                lip_top_L.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
+                
                 lip_corner_L.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
                 lip_corner_R.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
                 
                 cheek_R.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
                 cheek_L.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
-
                 
+                eyelid_bottom_R.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
+                eyelid_bottom_L.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
+                
+                lip_bottom.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
+
+#--------------------------------------------------------------------------------------------------------------------------------------
+# Mouth Smile & Frown
+                
+                N2MAR_R = float(row[12])
+                N2MAR_L = float(row[13])
+                
+                if (N2MAR_R - neutral_N2MAR) >= 0:
+                    
+                    lip_corner_R.rotation_euler.rotate_axis('Z', 0)
+                    
+                    lip_corner_R.rotation_euler.rotate_axis('X', (lip_corner_R.matrix.to_euler().x + 0.9 * ((N2MAR_R - neutral_N2MAR) / (max_N2MAR - neutral_N2MAR)) * normalisation_value * (OMAR - max_OMAR) ))
+                else:
+                    
+                    lip_corner_R.rotation_euler.rotate_axis('X', (lip_corner_R.matrix.to_euler().x + 0.2 * ((N2MAR_R - neutral_N2MAR) / (min_N2MAR - neutral_N2MAR)) * normalisation_value ))
+                
+                    lip_top_R.rotation_euler.rotate_axis('X', ( lip_top_R.matrix.to_euler().x - 0.05 * ((N2MAR_R - neutral_N2MAR) / (max_N2MAR - neutral_N2MAR)) * normalisation_value ) )
+                
+                    lip_bottom.rotation_euler.rotate_axis('X', (lip_bottom.matrix.to_euler().x - 0.01 * ((N2MAR_R - neutral_N2MAR) / (max_N2MAR - neutral_N2MAR)) * normalisation_value ))
+                    
+                    cheek_R.rotation_euler.rotate_axis('X', (cheek_R.matrix.to_euler().x - 0.1 * ((N2MAR_R - neutral_N2MAR) / (max_N2MAR - neutral_N2MAR)) * normalisation_value ))
+                    
+                    eyelid_bottom_R.rotation_euler.rotate_axis('X', (eyelid_bottom_R.matrix.to_euler().x - 0.1 * ((N2MAR_R - neutral_N2MAR) / (max_N2MAR - neutral_N2MAR)) * normalisation_value ))
+                    
+                    lip_corner_R.rotation_euler.rotate_axis('Z', (0.05 * ((N2MAR_R - neutral_N2MAR) / (min_N2MAR - neutral_N2MAR)) * normalisation_value ))
+                    
+                    inner_eyebrow_R.rotation_euler.rotate_axis('X', (inner_eyebrow_R.matrix.to_euler().x + 0.1 * ((N2MAR_R - neutral_N2MAR) / (min_N2MAR - neutral_N2MAR)) * normalisation_value ))
+
+                    
+                if (N2MAR_L - neutral_N2MAR) >= 0:
+                    
+                    lip_corner_L.rotation_euler.rotate_axis('Z', 0)
+                    
+                    lip_corner_L.rotation_euler.rotate_axis('X', (lip_corner_R.matrix.to_euler().x + 0.9 * ((N2MAR_L - neutral_N2MAR) / (max_N2MAR - neutral_N2MAR)) * normalisation_value * (OMAR - max_OMAR) ))
+                else:
+                    
+                    lip_corner_L.rotation_euler.rotate_axis('X', (lip_corner_L.matrix.to_euler().x + 0.2 * ((N2MAR_L - neutral_N2MAR) / (min_N2MAR - neutral_N2MAR)) * normalisation_value ))
+                
+                    lip_top_L.rotation_euler.rotate_axis('X', ( lip_top_L.matrix.to_euler().x - 0.05 * ((N2MAR_L - neutral_N2MAR) / (max_N2MAR - neutral_N2MAR)) * normalisation_value ) )
+                
+                    lip_bottom.rotation_euler.rotate_axis('X', (lip_bottom.matrix.to_euler().x - 0.01 * ((N2MAR_L - neutral_N2MAR) / (max_N2MAR - neutral_N2MAR)) * normalisation_value ))
+                    
+                    cheek_L.rotation_euler.rotate_axis('X', (cheek_L.matrix.to_euler().x - 0.1 * ((N2MAR_L - neutral_N2MAR) / (max_N2MAR - neutral_N2MAR)) * normalisation_value ))
+                    
+                    eyelid_bottom_L.rotation_euler.rotate_axis('X', (eyelid_bottom_R.matrix.to_euler().x - 0.1 * ((N2MAR_R - neutral_N2MAR) / (max_N2MAR - neutral_N2MAR)) * normalisation_value ))
+                    
+                    lip_corner_L.rotation_euler.rotate_axis('Z', (-0.05 * ((N2MAR_R - neutral_N2MAR) / (min_N2MAR - neutral_N2MAR)) * normalisation_value ))
+                    
+                    inner_eyebrow_L.rotation_euler.rotate_axis('X', (inner_eyebrow_L.matrix.to_euler().x + 0.1 * ((N2MAR_L - neutral_N2MAR) / (min_N2MAR - neutral_N2MAR)) * normalisation_value ))
+                    
+                lip_top_R.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
+                lip_top_L.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
+                
+                lip_corner_L.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
+                lip_corner_R.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
+                
+                cheek_R.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
+                cheek_L.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
+                
+                eyelid_bottom_R.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
+                eyelid_bottom_L.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
+                
+                inner_eyebrow_R.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
+                inner_eyebrow_L.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)  
+                
+                lip_bottom.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)           
 #-----------------------------------------------------------------------------------------------------------------------------------
                 
                 counter += 1
@@ -300,11 +388,35 @@ else:
     
     bpy.ops.graph.select_all(action='SELECT')
     bpy.ops.graph.smooth()
+    bpy.ops.graph.smooth()
 
     
     bpy.context.area.type = old_type
+#--------------------------------------------------------------------------------------------------------------------------------------
+# Blinking
     
+    counter = 0
+    bpy.context.scene.frame_set(counter * frame_interval)   
+    
+    with open(file_path, newline='\n') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',', quotechar='|')
+        next(reader)
+        for row in reader:
+            if row:
+                for ob in bpy.data.objects["Armature"].data.bones:
+                    ob.select = False
+                
+                blink = bool(int(row[11]))
+                
+                if blink:
+                    eyelid_top_R.rotation_euler.rotate_axis('X', -0.5)
+                    eyelid_top_L.rotation_euler.rotate_axis('X', -0.5)
+                    
+                
+                    eyelid_top_L.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
+                    eyelid_top_R.keyframe_insert(data_path="rotation_euler" ,frame= counter * frame_interval)
+                
+                counter += 1
+                bpy.context.scene.frame_set(counter * frame_interval)   
 
-
-
- 
+#-----------------------------------------------------------------------------------------------------------------------------------
