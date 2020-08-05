@@ -11,7 +11,7 @@ import statistics
 #video_capture = cv2.VideoCapture(0) #Webcam object
 #video_capture = cv2.VideoCapture('SourceShort4.mp4')
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
-video_capture = cv2.VideoCapture('Source3.mp4')
+video_capture = cv2.VideoCapture('0001-0483.avi')
 video_output = cv2.VideoWriter('output.avi', fourcc, 60.0, (1920,1080))
 detector = dlib.get_frontal_face_detector() #Face detector
 predictor = dlib.shape_predictor("Dataset/shape_predictor_68_face_landmarks.dat") #Landmark identifier. Set the filename to whatever you named the downloaded file
@@ -19,11 +19,11 @@ cv2.useOptimized()
 #---------------------------------------------------
 #Parameters:
 
-frame_interval = 10
+frame_interval = 3
 pitch_normalisation_value = 0.01
 yaw_normalisation_value = 0.005
-pupil_threshold = 50
-EAR_blink_threshold = 0.10
+pupil_threshold = 30
+EAR_blink_threshold = 0.16
 
 #---------------------------------------------------
 
@@ -293,11 +293,11 @@ while(video_capture.isOpened()):
         _, threshold_eye = cv2.threshold(gray_eye, pupil_threshold, 255, cv2.THRESH_BINARY_INV)
         M = cv2.moments(threshold_eye)
 
-        if (M["m10"] != 0) and ear_l > EAR_blink_threshold:
+        if (M["m10"] != 0):
             cX_la = M["m10"] / M["m00"]
             cY_la = M["m01"] / M["m00"]
             cX_l = cX_la / (max_x - min_x)
-            cY_l = cY_la / (max_y - min_y) * 1.8
+            cY_l = cY_la / (max_y - min_y) 
         else:
             cX_l = 0.5
             cY_l = 0.5
@@ -327,11 +327,11 @@ while(video_capture.isOpened()):
         _, threshold_eye = cv2.threshold(gray_eye, pupil_threshold, 255, cv2.THRESH_BINARY_INV)
         M = cv2.moments(threshold_eye)
 
-        if (M["m10"] != 0) and ear_r > EAR_blink_threshold:
+        if (M["m10"] != 0):
             cX_ra = M["m10"] / M["m00"]
             cY_ra = M["m01"] / M["m00"]
             cX_r = cX_ra / (max_x - min_x)
-            cY_r = cY_ra / (max_y - min_y) * 1.8
+            cY_r = cY_ra / (max_y - min_y)
         else:
             cX_r = 0.5
             cY_r = 0.5
@@ -472,7 +472,7 @@ while(video_capture.isOpened()):
         head_output_buffer[8].append(eY)
         head_output_buffer[9].append(omar)
         head_output_buffer[10].append(imar)
-        head_output_buffer[11].append(blink)
+        head_output_buffer[11].append(((ear_r + ear_l )/ 2))
         head_output_buffer[12].append(n2mar_r)
         head_output_buffer[13].append(n2mar_l)
 
@@ -489,7 +489,7 @@ while(video_capture.isOpened()):
                                  statistics.median(head_output_buffer[8]),
                                  statistics.median(head_output_buffer[9]),
                                  statistics.median(head_output_buffer[10]),
-                                 np.max(head_output_buffer[11]),
+                                 np.min(head_output_buffer[11]),
                                  statistics.median(head_output_buffer[12]),
                                  statistics.median(head_output_buffer[13])])
 
